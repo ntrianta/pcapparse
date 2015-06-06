@@ -17,7 +17,7 @@ func ipFlow(packet gopacket.Packet, s *mgo.Session) error {
 	src, dst := netFlow.Endpoints()
 	flow := bson.M{
 		"s": src.String(),
-		"p": dst.String(),
+		"d": dst.String(),
 	}
 	err = c.Insert(flow)
 
