@@ -3,32 +3,48 @@ package main
 import (
 	"code.google.com/p/gopacket"
 	"code.google.com/p/gopacket/pcap"
-	"fmt"
+	"flag"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
+func ipFlow(packet gopacket.Packet, s *mgo.Session) error {
+
+	err := error(nil)
+	c := s.DB("pcap").C("IP")
+	net := packet.NetworkLayer()
+	netFlow := net.NetworkFlow()
+	src, dst := netFlow.Endpoints()
+	flow := bson.M{
+		"s": src.String(),
+		"p": dst.String(),
+	}
+	err = c.Insert(flow)
+
+	return err
+}
+
 func main() {
-	if handle, err := pcap.OpenOffline("/path/to/file.pcap"); err != nil {
+	//Pcap file is given as a possitional argument, will be totally changed!
+	flag.Parse()
+	args := flag.Args()
+
+	dir := args[0]
+
+	handle, err := pcap.OpenOffline(dir)
+
+	if err != nil {
 		panic(err)
 	} else {
+		s, _ := mgo.Dial("localhost:27017")
+
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 		for packet := range packetSource.Packets() {
-			if packet == nil {
-				fmt.Println("empty packet")
-			} else if packet.TransportLayer() == nil {
-				fmt.Println("no transport")
-			} else {
-				link := packet.LinkLayer()
-				linkFlow := link.LinkFlow()
-				net := packet.NetworkLayer()
-				netFlow := net.NetworkFlow()
-				trans := packet.TransportLayer()
-				transFlow := trans.TransportFlow()
-				//	app := packet.ApplicationLayer()
-				fmt.Println(linkFlow, netFlow, transFlow, packet.Metadata().Timestamp)
-				//	fmt.Println(app)
+			if packet.NetworkLayer() != nil {
+				_ = ipFlow(packet, s)
 			}
 		}
+		s.Close()
 
 	}
-
 }
