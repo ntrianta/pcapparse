@@ -5,11 +5,10 @@ import (
 	_ "code.google.com/p/gopacket/layers"
 	"code.google.com/p/gopacket/pcap"
 	"flag"
-	"fmt"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"strings"
 	"time"
-	//	"gopkg.in/mgo.v2"
-	//	"gopkg.in/mgo.v2/bson"
 )
 
 type ipv4 struct {
@@ -25,8 +24,8 @@ type ipv4 struct {
 	checksum    string
 	source      string
 	destination string
-	options     string
-	padding     string
+	//options     string
+	//padding     string
 }
 
 type ipv6 struct {
@@ -74,7 +73,7 @@ type linkLayer struct {
 	protocol    string
 	source      string
 	destination string
-	etherType   string
+	ethertype   string
 	length      string
 }
 
@@ -98,6 +97,44 @@ type fullPacket struct {
 	network     *networkLayer
 	transport   *transportLayer
 	application []byte
+}
+
+func insertMongoDB(session *mgo.Session, packet fullPacket) error {
+	var packetLenght int
+	var packetTimestamp time.Time
+	var packetTruncated bool
+	var linkProtocol string
+	var linkSource string
+	var linkDestination string
+	var linkEthertype string
+	var linkLength string
+	var networkProtocol string
+
+
+	packetLenght = packet.length
+	packetTimestamp = packet.timestamp
+	packetTruncated = packet.truncated
+
+	collection := session.DB("pcap").C("master")
+
+	if packet.link != nil {
+		linkProtocol = packet.link.protocol
+		linkSource = packet.link.source
+		linkDestination = packet.link.destination
+		linkEthertype = packet.link.ethertype
+		linkLength = packet.link.length
+	}
+
+	query := bson.M{
+		"l":  packetLenght,
+		"ts": packetTimestamp,
+		"tr": packetTruncated,
+		"ll": bson.M{"p": linkProtocol, "s": linkSource, "d": linkDestination, "e": linkEthertype, "l": linkLength},
+		"nl": bson.M{"p:" network}
+	}
+	err := collection.Insert(query)
+	return err
+
 }
 
 func createTCP(transFields []string) *tcp {
@@ -149,8 +186,8 @@ func createFour(netFields []string) *ipv4 {
 		strings.Split(netFields[12], "=")[1],
 		strings.Split(netFields[13], "=")[1],
 		strings.Split(netFields[14], "=")[1],
-		strings.Split(netFields[15], "=")[1],
-		strings.Trim(strings.Split(netFields[16], "=")[1], "}"),
+		//	strings.Split(netFields[15], "=")[1],
+		//	strings.Trim(strings.Split(netFields[16], "=")[1], "}"),
 	}
 	return &four
 }
@@ -276,21 +313,19 @@ func main() {
 	//Pcap file is given as a possitional argument, will be totally changed!
 	flag.Parse()
 	args := flag.Args()
-
 	dir := args[0]
-
 	handle, err := pcap.OpenOffline(dir)
 
 	if err != nil {
 		panic(err)
 	} else {
-
+		session, err := mgo.Dial("localhost:27017")
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 		for packet := range packetSource.Packets() {
-			p := createPacket(packet)
-			fmt.Println(p.length, p.timestamp, p.truncated, p.link, p.network, p.transport, p.application)
-			fmt.Println(">>>>>>")
-
+			pack := createPacket(packet)
+			if err == nil {
+				insertMongoDB(session, pack)
+			}
 		}
 	}
 }
