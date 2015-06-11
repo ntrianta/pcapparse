@@ -209,26 +209,49 @@ func insertMongoDB(session *mgo.Session, packet fullPacket) error {
 }
 
 func createTCP(transFields []string) *tcp {
-	tee := tcp{
-		strings.Split(transFields[3], "=")[1],
-		strings.Split(transFields[4], "=")[1],
-		strings.Split(transFields[5], "=")[1],
-		strings.Split(transFields[6], "=")[1],
-		strings.Split(transFields[7], "=")[1],
-		strings.Split(transFields[8], "=")[1],
-		strings.Split(transFields[9], "=")[1],
-		strings.Split(transFields[10], "=")[1],
-		strings.Split(transFields[11], "=")[1],
-		strings.Split(transFields[12], "=")[1],
-		strings.Split(transFields[13], "=")[1],
-		strings.Split(transFields[14], "=")[1],
-		strings.Split(transFields[15], "=")[1],
-		strings.Split(transFields[16], "=")[1],
-		strings.Split(transFields[17], "=")[1],
-		strings.Split(transFields[18], "=")[1],
-		strings.Split(transFields[19], "=")[1],
-		//	strings.Split(transFields[20], "=")[1],
-		//	strings.Trim(strings.Split(transFields[21], "=")[1], "}"),
+	var tee tcp
+	if len(transFields) == 22 {
+		tee = tcp{
+			strings.Split(transFields[3], "=")[1],
+			strings.Split(transFields[4], "=")[1],
+			strings.Split(transFields[5], "=")[1],
+			strings.Split(transFields[6], "=")[1],
+			strings.Split(transFields[7], "=")[1],
+			strings.Split(transFields[8], "=")[1],
+			strings.Split(transFields[9], "=")[1],
+			strings.Split(transFields[10], "=")[1],
+			strings.Split(transFields[11], "=")[1],
+			strings.Split(transFields[12], "=")[1],
+			strings.Split(transFields[13], "=")[1],
+			strings.Split(transFields[14], "=")[1],
+			strings.Split(transFields[15], "=")[1],
+			strings.Split(transFields[16], "=")[1],
+			strings.Split(transFields[17], "=")[1],
+			strings.Split(transFields[18], "=")[1],
+			strings.Split(transFields[19], "=")[1],
+			//	strings.Split(transFields[20], "=")[1],
+			//	strings.Trim(strings.Split(transFields[21], "=")[1], "}"),
+		}
+	} else {
+		tee = tcp{
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+			"ignore",
+		}
 	}
 	return &tee
 }
