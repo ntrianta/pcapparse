@@ -206,7 +206,6 @@ func insertMongoDB(session *mgo.Session, packet fullPacket) error {
 	}
 	err := collection.Insert(query)
 	return err
-
 }
 
 func createTCP(transFields []string) *tcp {
