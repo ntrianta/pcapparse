@@ -15,7 +15,7 @@ type ipv4 struct {
 	version     string
 	ihl         string
 	tos         string
-	ipLenth     string
+	ipLength    string
 	id          string
 	flags       string
 	flagOffset  string
@@ -41,8 +41,8 @@ type ipv6 struct {
 }
 
 type tcp struct {
-	sourcePort    string
-	destPort      string
+	source        string
+	dest          string
 	seq           string
 	ackNumber     string
 	dataOffset    string
@@ -100,37 +100,109 @@ type fullPacket struct {
 }
 
 func insertMongoDB(session *mgo.Session, packet fullPacket) error {
-	var packetLenght int
-	var packetTimestamp time.Time
-	var packetTruncated bool
-	var linkProtocol string
-	var linkSource string
-	var linkDestination string
-	var linkEthertype string
-	var linkLength string
-	var networkProtocol string
 
+	var mongoLinkLayer bson.M
+	var mongoNetworkLayer bson.M
+	var mongoTransportLayer bson.M
 
-	packetLenght = packet.length
-	packetTimestamp = packet.timestamp
-	packetTruncated = packet.truncated
+	packetLenght := packet.length
+	packetTimestamp := packet.timestamp
+	packetTruncated := packet.truncated
+	packetPayload := packet.application
 
 	collection := session.DB("pcap").C("master")
 
 	if packet.link != nil {
-		linkProtocol = packet.link.protocol
-		linkSource = packet.link.source
-		linkDestination = packet.link.destination
-		linkEthertype = packet.link.ethertype
-		linkLength = packet.link.length
+		linkProtocol := packet.link.protocol
+		linkSource := packet.link.source
+		linkDestination := packet.link.destination
+		linkEthertype := packet.link.ethertype
+		linkLength := packet.link.length
+		mongoLinkLayer = bson.M{"p": linkProtocol, "s": linkSource, "d": linkDestination,
+			"e": linkEthertype, "l": linkLength}
+	}
+	if packet.network != nil {
+		networkProtocol := packet.network.protocol
+		if packet.network.four != nil {
+			networkVersion := packet.network.four.version
+			networkIHL := packet.network.four.ihl
+			networkTOS := packet.network.four.tos
+			networkLength := packet.network.four.ipLength
+			networkID := packet.network.four.id
+			networkFlags := packet.network.four.flags
+			networkFlagOffset := packet.network.four.flagOffset
+			networkTTL := packet.network.four.ttl
+			networkTransProtocol := packet.network.four.protocol
+			networkChecksum := packet.network.four.checksum
+			networkSource := packet.network.four.source
+			networkDestination := packet.network.four.destination
+			mongoNetworkLayer = bson.M{"p": networkProtocol, "v": networkVersion, "ihl": networkIHL,
+				"tos": networkTOS, "l": networkLength, "id": networkID,
+				"f": networkFlags, "fo": networkFlagOffset, "ttl": networkTTL,
+				"tp": networkTransProtocol, "c": networkChecksum,
+				"s": networkSource, "d": networkDestination}
+		} else {
+			networkVersion := packet.network.six.version
+			networkTrafficClass := packet.network.six.trafficClass
+			networkFlowLabel := packet.network.six.flowLabel
+			networkNextHeader := packet.network.six.nextHeader
+			networkHopLimit := packet.network.six.hopLimit
+			networkSource := packet.network.six.sourceIP
+			networkDestination := packet.network.six.destIP
+			networkHopByHop := packet.network.six.hopByHop
+			mongoNetworkLayer = bson.M{"p": networkProtocol, "v": networkVersion,
+				"tc": networkTrafficClass, "fl": networkFlowLabel,
+				"nh": networkNextHeader, "hl": networkHopLimit, "hbh": networkHopByHop,
+				"s": networkSource, "d": networkDestination}
+		}
+	}
+	if packet.transport != nil {
+		transportProtocol := packet.transport.protocol
+		if packet.transport.tee != nil {
+			transportSource := packet.transport.tee.source
+			transportDestination := packet.transport.tee.dest
+			transportSeq := packet.transport.tee.seq
+			transportAckNumber := packet.transport.tee.ackNumber
+			transportDataOffset := packet.transport.tee.dataOffset
+			transportFin := packet.transport.tee.fin
+			transportSyn := packet.transport.tee.syn
+			transportRst := packet.transport.tee.rst
+			transportPsh := packet.transport.tee.psh
+			transportAck := packet.transport.tee.ack
+			transportUrg := packet.transport.tee.urg
+			transportEce := packet.transport.tee.ece
+			transportCwr := packet.transport.tee.cwr
+			transportNs := packet.transport.tee.ns
+			transportWindow := packet.transport.tee.window
+			transportChecksum := packet.transport.tee.tcpChecksum
+			transportUrgentPointer := packet.transport.tee.urgentPointer
+			mongoTransportLayer = bson.M{"p": transportProtocol, "s": transportSource,
+				"d": transportDestination, "seq": transportSeq, "an": transportAckNumber,
+				"do": transportDataOffset, "fin": transportFin, "syn": transportSyn,
+				"rst": transportRst, "phs": transportPsh, "ack": transportAck,
+				"urg": transportUrg, "ece": transportEce, "cwr": transportCwr,
+				"ns": transportNs, "w": transportWindow, "cs": transportChecksum,
+				"up": transportUrgentPointer,
+			}
+		} else {
+			transportSource := packet.transport.yoo.sourcePort
+			transportDestination := packet.transport.yoo.destPort
+			transportLength := packet.transport.yoo.udpLength
+			transportChecksum := packet.transport.yoo.udpChecksum
+			mongoTransportLayer = bson.M{"p": transportProtocol, "s": transportSource,
+				"d": transportDestination, "l": transportLength, "cs": transportChecksum,
+			}
+		}
 	}
 
 	query := bson.M{
 		"l":  packetLenght,
 		"ts": packetTimestamp,
 		"tr": packetTruncated,
-		"ll": bson.M{"p": linkProtocol, "s": linkSource, "d": linkDestination, "e": linkEthertype, "l": linkLength},
-		"nl": bson.M{"p:" network}
+		"ll": mongoLinkLayer,
+		"nl": mongoNetworkLayer,
+		"tl": mongoTransportLayer,
+		"al": packetPayload,
 	}
 	err := collection.Insert(query)
 	return err
