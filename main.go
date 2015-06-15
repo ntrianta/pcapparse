@@ -5,8 +5,10 @@ import (
 	_ "code.google.com/p/gopacket/layers"
 	"code.google.com/p/gopacket/pcap"
 	"flag"
+	"fmt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -408,18 +410,22 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	dir := args[0]
-	handle, err := pcap.OpenOffline(dir)
-
-	if err != nil {
-		panic(err)
-	} else {
-		session, err := mgo.Dial("localhost:27017")
-		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-		for packet := range packetSource.Packets() {
-			pack := createPacket(packet)
-			if err == nil {
-				insertMongoDB(session, pack)
+	files, _ := filepath.Glob(dir + "/*")
+	for _, file := range files {
+		handle, err := pcap.OpenOffline(file)
+		if err != nil {
+			panic(err)
+		} else {
+			session, err := mgo.Dial("localhost:27017")
+			packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+			for packet := range packetSource.Packets() {
+				pack := createPacket(packet)
+				if err == nil {
+					insertMongoDB(session, pack)
+				}
 			}
+			session.Close()
 		}
+	   fmt.Println("finished", file)
 	}
 }
